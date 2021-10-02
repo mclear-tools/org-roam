@@ -362,6 +362,7 @@ GROUP BY id")))
                                                       :scheduled scheduled
                                                       :deadline deadline
                                                       :title temp-title
+                                                      :aliases aliases
                                                       :properties properties
                                                       :olp olp
                                                       :tags tags
@@ -441,8 +442,11 @@ SORT-FN is a function to sort nodes. See `org-roam-node-read-sort-by-file-mtime'
 for an example sort function.
 If REQUIRE-MATCH, the minibuffer prompt will require a match."
   (let* ((nodes (org-roam-node-read--completions))
-         (nodes (cl-remove-if-not (lambda (n)
-                                    (if filter-fn (funcall filter-fn (cdr n)) t)) nodes))
+         (nodes (if filter-fn
+                    (cl-remove-if-not
+                     (lambda (n) (funcall filter-fn (cdr n)))
+                     nodes)
+                  nodes))
          (sort-fn (or sort-fn
                       (when org-roam-node-default-sort
                         (intern (concat "org-roam-node-read-sort-by-"
@@ -515,13 +519,11 @@ Uses `org-roam-node-display-template' to format the entry."
          ;; empty string results in an empty string and misalignment for candidates that
          ;; don't have some field. This uses the actual display string, made of spaces
          ;; when the field-value is "" so that we actually take up space.
-         (let ((display-string (if field-width
-                                   (truncate-string-to-width field-value field-width 0 ?\s)
-                                 field-value)))
-           (if (equal field-value "")
-               display-string
-             ;; Remove properties from the full candidate string, otherwise the display
-             ;; formatting with pre-prioritized field-values gets messed up.
+         (if (or (not field-width) (equal field-value ""))
+             field-value
+           ;; Remove properties from the full candidate string, otherwise the display
+           ;; formatting with pre-propertized field-values gets messed up.
+           (let ((display-string (truncate-string-to-width field-value field-width 0 ?\s)))
              (propertize (substring-no-properties field-value) 'display display-string))))))))
 
 (defun org-roam-node-read--process-display-format (format)
@@ -848,7 +850,8 @@ If region is active, then use it instead of the node at point."
                            (t (let ((r (completing-read (format "%s: " key) nil nil nil default-val)))
                                 (plist-put template-info ksym r)
                                 r)))))))
-           (file-path (read-file-name "Extract node to: " org-roam-directory template nil template)))
+           (file-path (read-file-name "Extract node to: "
+                                      (file-name-as-directory org-roam-directory) template nil template)))
       (when (file-exists-p file-path)
         (user-error "%s exists. Aborting" file-path))
       (org-cut-subtree)
