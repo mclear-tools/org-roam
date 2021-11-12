@@ -159,10 +159,10 @@ It takes a single argument REF, which is a propertized string.")
                                                                     (ucs-normalize-NFD-string s)))))
                (cl-replace (title pair)
                            (replace-regexp-in-string (car pair) (cdr pair) title)))
-      (let* ((pairs `(("[^[:alnum:][:digit:]]" . "_") ;; convert anything not alphanumeric
-                      ("__*" . "_")                   ;; remove sequential underscores
-                      ("^_" . "")                     ;; remove starting underscore
-                      ("_$" . "")))                   ;; remove ending underscore
+      (let* ((pairs `(("[^[:alnum:][:digit:]]" . "-") ;; convert anything not alphanumeric
+                      ("--*" . "-")                   ;; remove sequential underscores
+                      ("^-"  . "")                     ;; remove starting underscore
+                      ("-$"  . "")))                   ;; remove ending underscore
              (slug (-reduce-from #'cl-replace (strip-nonspacing-marks title) pairs)))
         (downcase slug)))))
 
