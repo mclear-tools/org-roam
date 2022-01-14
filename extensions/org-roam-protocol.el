@@ -4,7 +4,7 @@
 ;; Author: Jethro Kuan <jethrokuan95@gmail.com>
 ;; URL: https://github.com/org-roam/org-roam
 ;; Keywords: org-mode, roam, convenience
-;; Version: 2.1.0
+;; Version: 2.2.0
 ;; Package-Requires: ((emacs "26.1") (org "9.4") (org-roam "2.1"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -141,12 +141,13 @@ It opens or creates a note with the given ref.
                                                               (plist-get info :ref)))
                         :initial (or (plist-get info :body) ""))
   (raise-frame)
-  (org-roam-capture-
-   :keys (plist-get info :template)
-   :node (org-roam-node-create :title (plist-get info :title))
-   :info (list :ref (plist-get info :ref)
-               :body (plist-get info :body))
-   :templates org-roam-capture-ref-templates)
+  (let ((org-capture-link-is-already-stored t))
+    (org-roam-capture-
+     :keys (plist-get info :template)
+     :node (org-roam-node-create :title (plist-get info :title))
+     :info (list :ref (plist-get info :ref)
+                 :body (plist-get info :body))
+     :templates org-roam-capture-ref-templates))
   nil)
 
 (defun org-roam-protocol-open-node (info)

@@ -31,7 +31,7 @@ General Public License for more details.
 @finalout
 @titlepage
 @title Org-roam User Manual
-@subtitle for version 2.1.0
+@subtitle for version 2.2.0
 @author Jethro Kuan
 @page
 @vskip 0pt plus 1filll
@@ -44,7 +44,7 @@ General Public License for more details.
 
 @noindent
 
-This manual is for Org-roam version 2.1.0.
+This manual is for Org-roam version 2.2.0.
 
 @quotation
 Copyright (C) 2020-2021 Jethro Kuan <jethrokuan95@@gmail.com>
@@ -80,14 +80,12 @@ General Public License for more details.
 * Performance Optimization::
 * The Org-mode Ecosystem::
 * FAQ::
-* Migrating from Org-roam v1::
 * Developer's Guide to Org-roam::
 * Appendix::
 * Keystroke Index::
 * Command Index::
 * Function Index::
 * Variable Index::
-* Bibliography: Bibliography (1). 
 
 @detailmenu
 --- The Detailed Node Listing ---
@@ -102,6 +100,10 @@ Installation Troubleshooting
 
 * C Compiler::
 
+C Compiler
+
+* C Compiler for Windows::
+
 Getting Started
 
 * The Org-roam Node::
@@ -111,6 +113,7 @@ Getting Started
 
 Customizing Node Caching
 
+* How to cache::
 * What to cache::
 * When to cache::
 
@@ -149,6 +152,10 @@ Installation
 * Mac OS::
 * Windows::
 
+Mac OS
+
+* Testing org-protocol::
+
 The Templating System
 
 * Template Walkthrough::
@@ -182,9 +189,17 @@ The Org-mode Ecosystem
 FAQ
 
 * How do I have more than one Org-roam directory?::
-* How do I migrate from Roam Research?::
 * How do I create a note whose title already matches one of the candidates?::
 * How can I stop Org-roam from creating IDs everywhere?::
+* How do I migrate from Roam Research?::
+* How to migrate from Org-roam v1?::
+* How do I publish my notes with an Internet-friendly graph?::
+
+How do I publish my notes with an Internet-friendly graph?
+
+* Configure org-mode for publishing::
+* Overriding the default link creation function::
+* Copying the generated file to the export directory::
 
 Developer's Guide to Org-roam
 
@@ -524,42 +539,39 @@ in your Emacs environment as a prerequisite for Org-roam when you install it.
 @code{emacsql-sqlite} requires a C compiler (e.g. @code{gcc} or @code{clang}) to be present in
 your computer. How to install a C compiler depends on the OS that you use.
 
-@itemize
-@item
-For Windows:
-@end itemize
+@menu
+* C Compiler for Windows::
+@end menu
 
-There are various ways to install one, depending on how you have installed
-Emacs. If you use Emacs within a Cygwin or MinGW environment, then you should
-install a compiler using their respective package manager.
+@node C Compiler for Windows
+@unnumberedsubsubsec C Compiler for Windows
 
-If you have installed your Emacs from the @uref{https://www.gnu.org/software/emacs/, GNU Emacs website}, then the easiest way
-is to use @uref{https://www.msys2.org/, MSYS2} as at the time of this writing:
+One of the easiest ways to install a C compiler in Windows is to use @uref{https://www.msys2.org/, MSYS2} as at the time of this writing:
 
 @itemize
 @item
-Use the installer in the official website and install MSYS2
+Download and use the installer in the official MSYS2 website
 
 @item
-Run MSYS2
-
-@item
-In the command-line tool, type the following and answer ``Y'' to proceed:
+Run MSYS2 and in its terminal, type the following and answer ``Y'' to
+proceed -- this will install @code{gcc} in your PC:
 
 @example
 pacman -S gcc
 @end example
 
-Note that you do not need to manually set the PATH for MSYS2; the
-@end itemize
-installer automatically takes care of it for you.
 
-@itemize
 @item
-Open Emacs and call @code{M-x org-roam-db-autosync-mode}
+On Windows, add @code{C:\msys64\usr\bin} (command @samp{where gcc} in MSYS2 terminal
+can tell you the correct path) to @code{PATH} in your environmental variables
+
+
+@item
+Launch Emacs and call @code{M-x org-roam-db-autosync-mode} (launch Emacs after
+defining the path, so that Emacs can recognize it)
+@end itemize
 
 This will automatically start compiling @code{emacsql-sqlite}; you should see a
-@end itemize
 message in minibuffer. It may take a while until compilation completes. Once
 complete, you should see a new file @code{emacsql-sqlite.exe} created in a subfolder
 named @code{sqlite} under @code{emacsql-sqlite} installation folder. It's typically in
@@ -696,9 +708,56 @@ Org-roam provides (see @ref{Completion}).
 @chapter Customizing Node Caching
 
 @menu
+* How to cache::
 * What to cache::
 * When to cache::
 @end menu
+
+@node How to cache
+@section How to cache
+
+Org-roam uses a sqlite database to perform caching, but there are multiple Emacs
+libraries that can be used. The default used by Org-roam is @code{emacs-sqlite}.
+Below the pros and cons of each package is used:
+
+@uref{https://github.com/skeeto/emacsql, @strong{@strong{emacs-sqlite}}}
+
+The default option used by Org-roam. This library is the most mature and
+well-supported and is imported by default in Org-roam.
+
+One downside of using @code{emacs-sqlite} is that using it requires compilation and
+can cause issues in some environments (especially Windows). If you have issues
+producing the customized binary required by @code{emacs-sqlite}, consider using
+@code{emacs-sqlite3}.
+
+@uref{https://github.com/cireu/emacsql-sqlite3, @strong{@strong{emacs-sqlite3}}}
+
+@code{emacs-sqlite3} uses the official sqlite3 binary that can be obtained from your
+system's package manager. This is useful if you have issues producing the
+@code{sqlite3} binary required by the other packages. However, it is not recommended
+because it has some compatibility issues with Emacs, but should work for most
+regular cases. See @uref{https://nullprogram.com/blog/2014/02/06/, Chris Wellon's blog post} for more information.
+
+To use @code{emacsql-sqlite3}, ensure that the package is installed, and set:
+
+@lisp
+(setq org-roam-database-connector 'sqlite3)
+@end lisp
+
+@uref{https://github.com/emacscollective/emacsql-libsqlite3/, @strong{@strong{emacsql-libsqlite3}}}
+
+@code{emacs-libsqlite3} is a relatively young package which uses an Emacs module that
+exposes parts of the SQLite C API to Emacs Lisp, instead of using subprocess as
+@code{emacsql-sqlite} does. It is expected to be a more performant drop-in
+replacement for @code{emacs-sqlite}.
+
+At the moment it is experimental and does not work well with the SQL query load
+required by Org-roam, but you may still try it by ensuring the package is
+installed and setting:
+
+@lisp
+(setq org-roam-database-connector 'libsqlite3)
+@end lisp
 
 @node What to cache
 @section What to cache
@@ -800,9 +859,10 @@ keybindings available. Here are several of the more useful ones:
 
 @item
 @code{n}: @code{magit-section-forward}
-@end itemize
--@code{<TAB>}: @code{magit-section-toggle}
-@itemize
+
+@item
+@code{<TAB>}: @code{magit-section-toggle}
+
 @item
 @code{<RET>}: @code{org-roam-buffer-visit-thing}
 @end itemize
@@ -1006,7 +1066,7 @@ Remove a ref from the node at point.
 
 Since version 9.5, Org has first-class support for citations. Org-roam supports
 the caching of both these in-built citations (of form @code{[cite:@@key]}) and @uref{https://github.com/jkitchin/org-ref, org-ref}
-citations (of form (NO@math{_ITEM}@math{_DATA}:key)).
+citations (of form cite:key).
 
 Org-roam attempts to load both the @code{org-ref} and @code{org-cite} package when
 indexing files, so no further setup from the user is required for citation
@@ -1028,6 +1088,16 @@ citation key:
 :PROPERTIES:
 :ID:       51b7b82c-bbb4-4822-875a-ed548cffda10
 :ROAM_REFS: @@thrun2005probabilistic
+:END:
+@end example
+
+or
+
+@example
+* Probabilistic Robotics
+:PROPERTIES:
+:ID:       51b7b82c-bbb4-4822-875a-ed548cffda10
+:ROAM_REFS: [cite:@@thrun2005probabilistic]
 :END:
 @end example
 
@@ -1270,6 +1340,35 @@ defaults write com.apple.LaunchServices/com.apple.launchservices.secure LSHandle
 @end example
 
 Then restart your computer.
+
+@menu
+* Testing org-protocol::
+@end menu
+
+@node Testing org-protocol
+@unnumberedsubsubsec Testing org-protocol
+
+To test that you have the handler setup and registered properly from the command
+line you can run:
+
+@example
+open org-protocol://roam-ref\?template=r\&ref=test\&title=this
+@end example
+
+If you get an error similar too this or the wrong handler is run:
+
+@quotation
+No application knows how to open URL org-protocol://roam-ref?template=r&ref=test&title=this (Error Domain=NSOSStatusErrorDomain Code=-10814 ``kLSApplicationNotFoundErr: E.g. no application claims the file'' UserInfo=@{@math{_LSLine}=1489, _LSFunction=runEvaluator@}).
+
+@end quotation
+
+You may need to manually register your handler, like this:
+
+@example
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -R  -f /Applications/OrgProtocolClient.app
+@end example
+
+Here is a link to the lsregister command that is really useful: @uref{https://eclecticlight.co/2019/03/25/lsregister-a-valuable-undocumented-command-for-launchservices/}
 
 @node Windows
 @subsection Windows
@@ -1807,6 +1906,9 @@ documents (PDF, EPUB etc.) within Org-mode.
 @node Bibliography
 @section Bibliography
 
+Org 9.5 added native citation and bibliography functionality, called ``org-cite'',
+which org-roam supports.
+
 @uref{https://github.com/org-roam/org-roam-bibtex, org-roam-bibtex} offers tight integration between @uref{https://github.com/jkitchin/org-ref, org-ref}, @uref{https://github.com/tmalsburg/helm-bibtex, helm-bibtex} and
 @code{org-roam}. This helps you manage your bibliographic notes under @code{org-roam}.
 
@@ -1828,9 +1930,11 @@ Org-mode, and sync your cards to Anki via @uref{https://github.com/FooSoft/anki-
 
 @menu
 * How do I have more than one Org-roam directory?::
-* How do I migrate from Roam Research?::
 * How do I create a note whose title already matches one of the candidates?::
 * How can I stop Org-roam from creating IDs everywhere?::
+* How do I migrate from Roam Research?::
+* How to migrate from Org-roam v1?::
+* How do I publish my notes with an Internet-friendly graph?::
 @end menu
 
 @node How do I have more than one Org-roam directory?
@@ -1845,20 +1949,26 @@ variable using directory-local variables. This is what @code{.dir-locals.el} may
 contain:
 
 @lisp
-((nil . ((org-roam-directory . (expand-file-name "."))
-         (org-roam-db-location . (expand-file-name "./org-roam.db")))))
+((nil . ((org-roam-directory . "/path/to/alt/org-roam-dir")
+         (org-roam-db-location . "/path/to/alt/org-roam-dir/org-roam.db"))))
+@end lisp
+
+Note @code{org-roam-directory} and @code{org-roam-db-location} should be an absolute path, not relative.
+
+Alternatively, use @code{eval} if you wish to call functions:
+
+@lisp
+((nil . ((eval . (setq-local
+                  org-roam-directory (expand-file-name (locate-dominating-file
+                                                        default-directory ".dir-locals.el"))))
+         (eval . (setq-local
+                  org-roam-db-location (expand-file-name "org-roam.db"
+                                                         org-roam-directory))))))
 @end lisp
 
 All files within that directory will be treated as their own separate set of
 Org-roam files. Remember to run @code{org-roam-db-sync} from a file within
 that directory, at least once.
-
-@node How do I migrate from Roam Research?
-@section How do I migrate from Roam Research?
-
-Fabio has produced a command-line tool that converts markdown files exported
-from Roam Research into Org-roam compatible markdown. More instructions are
-provided @uref{https://github.com/fabioberger/roam-migration, in the repository}.
 
 @node How do I create a note whose title already matches one of the candidates?
 @section How do I create a note whose title already matches one of the candidates?
@@ -1888,24 +1998,32 @@ you don't want them to be (e.g. when tangling an Org file), check the value you
 have set for @code{org-id-link-to-org-use-id}: setting it to @code{'create-if-interactive}
 is a popular option.
 
-@node Migrating from Org-roam v1
-@chapter Migrating from Org-roam v1
+@node How do I migrate from Roam Research?
+@section How do I migrate from Roam Research?
+
+Fabio has produced a command-line tool that converts markdown files exported
+from Roam Research into Org-roam compatible markdown. More instructions are
+provided @uref{https://github.com/fabioberger/roam-migration, in the repository}.
+
+@node How to migrate from Org-roam v1?
+@section How to migrate from Org-roam v1?
 
 Those coming from Org-roam v1 will do well treating v2 as entirely new software.
 V2 has a smaller core and fewer moving parts, while retaining the bulk of its
 functionality. It is recommended to read the documentation above about nodes.
 
-It is still desirable to migrate notes collected in v1 to v2. To migrate your v1
-notes to v2, you may use the migration script provided in @uref{https://gist.github.com/jethrokuan/02f41028fb4a6f81787dc420fb99b6e4, this gist}, or @uref{https://gist.github.com/jethrokuan/02f41028fb4a6f81787dc420fb99b6e4#gistcomment-3737019, this
-gist}, the latter being better tested. @uref{https://d12frosted.io/posts/2021-06-11-path-to-org-roam-v2.html, This blog post} provides a good overview of
-what's new in v2 and how to migrate.
+It is still desirable to migrate notes collected in v1 to v2.
+To migrate your v1 notes to v2, use @samp{M-x org-roam-migrate-wizard}.
+@uref{https://d12frosted.io/posts/2021-06-11-path-to-org-roam-v2.html, This blog post}
+provides a good overview of what's new in v2 and how to migrate.
 
-Simply put, to migrate notes from v1 to v2, one must:
+Essentially, to migrate notes from v1 to v2, one must:
 
 @itemize
 @item
-Add IDs to all existing notes. These are located in top-level property
-drawers (Although note that in v2, not all files need to have IDs)
+Add IDs to all existing notes.
+These are located in top-level property drawers
+(Although note that in v2, not all files need to have IDs).
 
 @item
 Update the Org-roam database to conform to the new schema.
@@ -1917,12 +2035,115 @@ Replace @code{#+ROAM_KEY} into the @code{ROAM_REFS} property
 Replace @code{#+ROAM_ALIAS} into the @code{ROAM_ALIASES} property
 
 @item
-Move @code{#+ROAM_TAGS} into the @code{#+FILETAGS} property for file-level nodes, and
-the @code{ROAM_TAGS} property for headline nodes
+Move @code{#+ROAM_TAGS} into the @code{#+FILETAGS} property for file-level nodes,
+and the @code{ROAM_TAGS} property for headline nodes
 
 @item
 Replace existing file links with ID links.
 @end itemize
+
+@node How do I publish my notes with an Internet-friendly graph?
+@section How do I publish my notes with an Internet-friendly graph?
+
+The default graph builder creates a graph with an @uref{https://orgmode.org/worg/org-contrib/org-protocol.html, org-protocol}
+handler which is convenient when you're working locally but
+inconvenient when you want to publish your notes for remote access.
+Likewise, it defaults to displaying the graph in Emacs which has the
+exact same caveats.  This problem is solvable in the following way
+using org-mode's native @uref{https://orgmode.org/manual/Publishing.html, publishing} capability:
+
+@itemize
+@item
+configure org-mode to publish your org-roam notes as a project.
+
+@item
+create a function that overrides the default org-protocol link
+creation function(@samp{org-roam-default-link-builder}).
+
+@item
+create a hook that's called at the end of graph creation to copy
+the generated graph to the appropriate place.
+@end itemize
+
+The example code below is used to publish to a local directory where a
+separate shell script copies the files to the remote site.
+
+@menu
+* Configure org-mode for publishing::
+* Overriding the default link creation function::
+* Copying the generated file to the export directory::
+@end menu
+
+@node Configure org-mode for publishing
+@subsection Configure org-mode for publishing
+
+This has two steps:
+@itemize
+@item
+Setting of a @emph{roam} project that publishes your notes.
+
+@item
+Configuring the @emph{sitemap.html} generation.
+
+@item
+Setting up @samp{org-publish} to generate the graph.
+@end itemize
+
+This will require code like the following:
+@lisp
+(defun roam-sitemap (title list)
+  (concat "#+OPTIONS: ^:nil author:nil html-postamble:nil\n"
+          "#+SETUPFILE: ./simple_inline.theme\n"
+          "#+TITLE: " title "\n\n"
+          (org-list-to-org list) "\nfile:sitemap.svg"))
+
+(setq my-publish-time 0)   ; see the next section for context
+(defun roam-publication-wrapper (plist filename pubdir)
+  (org-roam-graph)
+  (org-html-publish-to-html plist filename pubdir)
+  (setq my-publish-time (cadr (current-time))))
+
+(setq org-publish-project-alist
+  '(("roam"
+     :base-directory "~/roam"
+     :auto-sitemap t
+     :sitemap-function roam-sitemap
+     :sitemap-title "Roam notes"
+     :publishing-function roam-publication-wrapper
+     :publishing-directory "~/roam-export"
+     :section-number nil
+     :table-of-contents nil
+     :style "<link rel=\"stylesheet\" href=\"../other/mystyle.cs\" type=\"text/css\">")))
+@end lisp
+
+@node Overriding the default link creation function
+@subsection Overriding the default link creation function
+
+The code below will generate a link to the generated html file instead
+of the default org-protocol link.
+@lisp
+(defun org-roam-custom-link-builder (node)
+  (let ((file (org-roam-node-file node)))
+    (concat (file-name-base file) ".html")))
+
+(setq org-roam-graph-link-builder 'org-roam-custom-link-builder)
+@end lisp
+
+@node Copying the generated file to the export directory
+@subsection Copying the generated file to the export directory
+
+The default behavior of @samp{org-roam-graph} is to generate the graph and
+display it in Emacs.  There is an @samp{org-roam-graph-generation-hook}
+available that provides access to the file names so they can be copied
+to the publishing directory.  Example code follows:
+
+@lisp
+(add-hook 'org-roam-graph-generation-hook
+          (lambda (dot svg) (if (< (- (cadr (current-time)) my-publish-time) 5)
+                                (progn (copy-file svg "~/roam-export/sitemap.svg" 't)
+                                       (kill-buffer (file-name-nondirectory svg))
+                                       (setq my-publish-time 0)))))
+@end lisp
 
 @node Developer's Guide to Org-roam
 @chapter Developer's Guide to Org-roam
@@ -2176,10 +2397,5 @@ When GOTO is non-nil, go the note without creating an entry."
 
 @printindex vr
 
-@node Bibliography (1)
-@chapter Bibliography
-
-NO@math{_ITEM}@math{_DATA}:key
-
-Emacs 28.0.50 (Org mode 9.5)
+Emacs 29.0.50 (Org mode 9.6)
 @bye

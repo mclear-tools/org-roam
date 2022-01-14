@@ -1,20 +1,20 @@
 #+title: Org-roam User Manual
 #+author: Jethro Kuan
 #+email: jethrokuan95@gmail.com
-#+date: 2020-2021
+#+date: 2020-2022
 #+language: en
 
 #+texinfo_deffn: t
 #+texinfo_dir_category: Emacs
 #+texinfo_dir_title: Org-roam: (org-roam).
 #+texinfo_dir_desc: Roam Research for Emacs.
-#+subtitle: for version 2.1.0
+#+subtitle: for version 2.2.0
 
 #+options: H:4 num:3 toc:nil creator:t ':t
 #+property: header-args :eval never
 #+texinfo: @noindent
 
-This manual is for Org-roam version 2.1.0.
+This manual is for Org-roam version 2.2.0.
 
 #+BEGIN_QUOTE
 Copyright (C) 2020-2021 Jethro Kuan <jethrokuan95@gmail.com>
@@ -288,29 +288,25 @@ in your Emacs environment as a prerequisite for Org-roam when you install it.
 ~emacsql-sqlite~ requires a C compiler (e.g. ~gcc~ or ~clang~) to be present in
 your computer. How to install a C compiler depends on the OS that you use.
 
-- For Windows:
+**** C Compiler for Windows
 
-There are various ways to install one, depending on how you have installed
-Emacs. If you use Emacs within a Cygwin or MinGW environment, then you should
-install a compiler using their respective package manager.
+One of the easiest ways to install a C compiler in Windows is to use [[https://www.msys2.org/][MSYS2]] as at the time of this writing:
 
-If you have installed your Emacs from the [[https://www.gnu.org/software/emacs/][GNU Emacs website]], then the easiest way
-is to use [[https://www.msys2.org/][MSYS2]] as at the time of this writing:
-
-1. Use the installer in the official website and install MSYS2
-2. Run MSYS2
-3. In the command-line tool, type the following and answer "Y" to proceed:
+1. Download and use the installer in the official MSYS2 website
+2. Run MSYS2 and in its terminal, type the following and answer "Y" to
+   proceed -- this will install ~gcc~ in your PC:
 
    #+BEGIN_SRC bash
      pacman -S gcc
    #+END_SRC
 
-   Note that you do not need to manually set the PATH for MSYS2; the
-installer automatically takes care of it for you.
+4. On Windows, add ~C:\msys64\usr\bin~ (command =where gcc= in MSYS2 terminal
+   can tell you the correct path) to ~PATH~ in your environmental variables
 
-4. Open Emacs and call ~M-x org-roam-db-autosync-mode~
+5. Launch Emacs and call ~M-x org-roam-db-autosync-mode~ (launch Emacs after
+   defining the path, so that Emacs can recognize it)
 
-   This will automatically start compiling ~emacsql-sqlite~; you should see a
+This will automatically start compiling ~emacsql-sqlite~; you should see a
 message in minibuffer. It may take a while until compilation completes. Once
 complete, you should see a new file ~emacsql-sqlite.exe~ created in a subfolder
 named ~sqlite~ under ~emacsql-sqlite~ installation folder. It's typically in
@@ -418,6 +414,51 @@ One can also conveniently insert links via the completion-at-point functions
 Org-roam provides (see [[*Completion][Completion]]).
 
 * Customizing Node Caching
+** How to cache
+
+Org-roam uses a sqlite database to perform caching, but there are multiple Emacs
+libraries that can be used. The default used by Org-roam is ~emacs-sqlite~.
+Below the pros and cons of each package is used:
+
+[[https://github.com/skeeto/emacsql][**emacs-sqlite**]]
+
+The default option used by Org-roam. This library is the most mature and
+well-supported and is imported by default in Org-roam.
+
+One downside of using ~emacs-sqlite~ is that using it requires compilation and
+can cause issues in some environments (especially Windows). If you have issues
+producing the customized binary required by ~emacs-sqlite~, consider using
+~emacs-sqlite3~.
+
+[[https://github.com/cireu/emacsql-sqlite3][**emacs-sqlite3**]]
+
+~emacs-sqlite3~ uses the official sqlite3 binary that can be obtained from your
+system's package manager. This is useful if you have issues producing the
+~sqlite3~ binary required by the other packages. However, it is not recommended
+because it has some compatibility issues with Emacs, but should work for most
+regular cases. See [[https://nullprogram.com/blog/2014/02/06/][Chris Wellon's blog post]] for more information.
+
+To use ~emacsql-sqlite3~, ensure that the package is installed, and set:
+
+#+begin_src emacs-lisp
+  (setq org-roam-database-connector 'sqlite3)
+#+end_src
+
+[[https://github.com/emacscollective/emacsql-libsqlite3/][**emacsql-libsqlite3**]]
+
+~emacs-libsqlite3~ is a relatively young package which uses an Emacs module that
+exposes parts of the SQLite C API to Emacs Lisp, instead of using subprocess as
+~emacsql-sqlite~ does. It is expected to be a more performant drop-in
+replacement for ~emacs-sqlite~.
+
+At the moment it is experimental and does not work well with the SQL query load
+required by Org-roam, but you may still try it by ensuring the package is
+installed and setting:
+
+#+begin_src emacs-lisp
+  (setq org-roam-database-connector 'libsqlite3)
+#+end_src
+
 ** What to cache
 
 By default, all nodes (any headline or file with an ID) are cached by Org-roam.
@@ -670,6 +711,16 @@ citation key:
 :END:
 #+end_src
 
+or
+
+#+begin_src org
+,* Probabilistic Robotics
+:PROPERTIES:
+:ID:       51b7b82c-bbb4-4822-875a-ed548cffda10
+:ROAM_REFS: [cite:@thrun2005probabilistic]
+:END:
+#+end_src
+
 for ~org-cite~, or:
 
 #+begin_src org
@@ -864,6 +915,29 @@ defaults write com.apple.LaunchServices/com.apple.launchservices.secure LSHandle
 
 Then restart your computer.
 
+**** Testing org-protocol
+
+To test that you have the handler setup and registered properly from the command
+line you can run:
+
+#+begin_src bash
+  open org-protocol://roam-ref\?template=r\&ref=test\&title=this
+#+end_src
+
+If you get an error similar too this or the wrong handler is run:
+
+#+begin_quote
+No application knows how to open URL org-protocol://roam-ref?template=r&ref=test&title=this (Error Domain=NSOSStatusErrorDomain Code=-10814 "kLSApplicationNotFoundErr: E.g. no application claims the file" UserInfo={_LSLine=1489, _LSFunction=runEvaluator}).
+
+#+end_quote
+
+You may need to manually register your handler, like this:
+
+#+begin_src bash
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -R  -f /Applications/OrgProtocolClient.app
+#+end_src
+
+Here is a link to the lsregister command that is really useful: https://eclecticlight.co/2019/03/25/lsregister-a-valuable-undocumented-command-for-launchservices/
 *** Windows
 For Windows, create a temporary ~org-protocol.reg~ file:
 
@@ -1287,6 +1361,9 @@ documents (PDF, EPUB etc.) within Org-mode.
 
 ** Bibliography
 
+Org 9.5 added native citation and bibliography functionality, called "org-cite",
+which org-roam supports.
+
 [[https://github.com/org-roam/org-roam-bibtex][org-roam-bibtex]] offers tight integration between [[https://github.com/jkitchin/org-ref][org-ref]], [[https://github.com/tmalsburg/helm-bibtex][helm-bibtex]] and
 ~org-roam~. This helps you manage your bibliographic notes under ~org-roam~.
 
@@ -1314,19 +1391,26 @@ variable using directory-local variables. This is what ~.dir-locals.el~ may
 contain:
 
 #+BEGIN_SRC emacs-lisp
-  ((nil . ((org-roam-directory . (expand-file-name "."))
-           (org-roam-db-location . (expand-file-name "./org-roam.db")))))
+  ((nil . ((org-roam-directory . "/path/to/alt/org-roam-dir")
+           (org-roam-db-location . "/path/to/alt/org-roam-dir/org-roam.db"))))
+#+END_SRC
+
+Note ~org-roam-directory~ and ~org-roam-db-location~ should be an absolute path, not relative.
+
+Alternatively, use ~eval~ if you wish to call functions:
+
+#+BEGIN_SRC emacs-lisp
+  ((nil . ((eval . (setq-local
+                    org-roam-directory (expand-file-name (locate-dominating-file
+                                                          default-directory ".dir-locals.el"))))
+           (eval . (setq-local
+                    org-roam-db-location (expand-file-name "org-roam.db"
+                                                           org-roam-directory))))))
 #+END_SRC
 
 All files within that directory will be treated as their own separate set of
 Org-roam files. Remember to run ~org-roam-db-sync~ from a file within
 that directory, at least once.
-
-** How do I migrate from Roam Research?
-
-Fabio has produced a command-line tool that converts markdown files exported
-from Roam Research into Org-roam compatible markdown. More instructions are
-provided [[https://github.com/fabioberger/roam-migration][in the repository]].
 
 ** How do I create a note whose title already matches one of the candidates?
 
@@ -1348,27 +1432,110 @@ you don't want them to be (e.g. when tangling an Org file), check the value you
 have set for ~org-id-link-to-org-use-id~: setting it to ~'create-if-interactive~
 is a popular option.
 
-* Migrating from Org-roam v1
+** How do I migrate from Roam Research?
+
+Fabio has produced a command-line tool that converts markdown files exported
+from Roam Research into Org-roam compatible markdown. More instructions are
+provided [[https://github.com/fabioberger/roam-migration][in the repository]].
+
+** How to migrate from Org-roam v1?
 
 Those coming from Org-roam v1 will do well treating v2 as entirely new software.
 V2 has a smaller core and fewer moving parts, while retaining the bulk of its
 functionality. It is recommended to read the documentation above about nodes.
 
-It is still desirable to migrate notes collected in v1 to v2. To migrate your v1
-notes to v2, you may use the migration script provided in [[https://gist.github.com/jethrokuan/02f41028fb4a6f81787dc420fb99b6e4][this gist]], or [[https://gist.github.com/jethrokuan/02f41028fb4a6f81787dc420fb99b6e4#gistcomment-3737019][this
-gist]], the latter being better tested. [[https://d12frosted.io/posts/2021-06-11-path-to-org-roam-v2.html][This blog post]] provides a good overview of
-what's new in v2 and how to migrate.
+It is still desirable to migrate notes collected in v1 to v2.
+To migrate your v1 notes to v2, use =M-x org-roam-migrate-wizard=.
+[[https://d12frosted.io/posts/2021-06-11-path-to-org-roam-v2.html][This blog post]]
+provides a good overview of what's new in v2 and how to migrate.
 
-Simply put, to migrate notes from v1 to v2, one must:
+Essentially, to migrate notes from v1 to v2, one must:
 
-1. Add IDs to all existing notes. These are located in top-level property
-   drawers (Although note that in v2, not all files need to have IDs)
+1. Add IDs to all existing notes.
+   These are located in top-level property drawers
+   (Although note that in v2, not all files need to have IDs).
 2. Update the Org-roam database to conform to the new schema.
 3. Replace ~#+ROAM_KEY~ into the ~ROAM_REFS~ property
 4. Replace ~#+ROAM_ALIAS~ into the ~ROAM_ALIASES~ property
-5. Move ~#+ROAM_TAGS~ into the ~#+FILETAGS~ property for file-level nodes, and
-   the ~ROAM_TAGS~ property for headline nodes
+5. Move ~#+ROAM_TAGS~ into the ~#+FILETAGS~ property for file-level nodes,
+   and the ~ROAM_TAGS~ property for headline nodes
 6. Replace existing file links with ID links.
+
+** How do I publish my notes with an Internet-friendly graph?
+
+The default graph builder creates a graph with an [[https://orgmode.org/worg/org-contrib/org-protocol.html][org-protocol]]
+handler which is convenient when you're working locally but
+inconvenient when you want to publish your notes for remote access.
+Likewise, it defaults to displaying the graph in Emacs which has the
+exact same caveats.  This problem is solvable in the following way
+using org-mode's native [[https://orgmode.org/manual/Publishing.html][publishing]] capability:
+
+1. configure org-mode to publish your org-roam notes as a project.
+2. create a function that overrides the default org-protocol link
+   creation function(=org-roam-default-link-builder=).
+3. create a hook that's called at the end of graph creation to copy
+   the generated graph to the appropriate place.
+
+The example code below is used to publish to a local directory where a
+separate shell script copies the files to the remote site.
+
+*** Configure org-mode for publishing
+This has two steps:
+1. Setting of a /roam/ project that publishes your notes.
+2. Configuring the /sitemap.html/ generation.
+3. Setting up =org-publish= to generate the graph.
+  
+This will require code like the following:
+#+begin_src emacs-lisp
+  (defun roam-sitemap (title list)
+    (concat "#+OPTIONS: ^:nil author:nil html-postamble:nil\n"
+            "#+SETUPFILE: ./simple_inline.theme\n"
+            "#+TITLE: " title "\n\n"
+            (org-list-to-org list) "\nfile:sitemap.svg"))
+
+  (setq my-publish-time 0)   ; see the next section for context
+  (defun roam-publication-wrapper (plist filename pubdir)
+    (org-roam-graph)
+    (org-html-publish-to-html plist filename pubdir)
+    (setq my-publish-time (cadr (current-time))))
+
+  (setq org-publish-project-alist
+    '(("roam"
+       :base-directory "~/roam"
+       :auto-sitemap t
+       :sitemap-function roam-sitemap
+       :sitemap-title "Roam notes"
+       :publishing-function roam-publication-wrapper
+       :publishing-directory "~/roam-export"
+       :section-number nil
+       :table-of-contents nil
+       :style "<link rel=\"stylesheet\" href=\"../other/mystyle.cs\" type=\"text/css\">")))
+#+end_src
+
+*** Overriding the default link creation function
+The code below will generate a link to the generated html file instead
+of the default org-protocol link.
+#+begin_src emacs-lisp
+  (defun org-roam-custom-link-builder (node)
+    (let ((file (org-roam-node-file node)))
+      (concat (file-name-base file) ".html")))
+
+  (setq org-roam-graph-link-builder 'org-roam-custom-link-builder)
+#+end_src
+
+*** Copying the generated file to the export directory
+The default behavior of =org-roam-graph= is to generate the graph and
+display it in Emacs.  There is an =org-roam-graph-generation-hook=
+available that provides access to the file names so they can be copied
+to the publishing directory.  Example code follows:
+
+#+begin_src emacs-lisp
+  (add-hook 'org-roam-graph-generation-hook
+            (lambda (dot svg) (if (< (- (cadr (current-time)) my-publish-time) 5)
+                                  (progn (copy-file svg "~/roam-export/sitemap.svg" 't)
+                                         (kill-buffer (file-name-nondirectory svg))
+                                         (setq my-publish-time 0)))))
+#+end_src
 
 * Developer's Guide to Org-roam
 ** Org-roam's Design Principle

@@ -5,7 +5,7 @@
 ;; Author: Jethro Kuan <jethrokuan95@gmail.com>
 ;; URL: https://github.com/org-roam/org-roam
 ;; Keywords: org-mode, roam, convenience
-;; Version: 2.1.0
+;; Version: 2.2.0
 ;; Package-Requires: ((emacs "26.1") (dash "2.13") (f "0.17.2") (org "9.4") (emacsql "3.0.0") (emacsql-sqlite "1.0.0") (magit-section "3.0.0"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -272,15 +272,15 @@ E.g. (\".org\") => (\"*.org\" \"*.org.gpg\")"
 (defun org-roam--list-files-find (executable dir)
   "Return all Org-roam files under DIR, using \"find\", provided as EXECUTABLE."
   (let* ((globs (org-roam--list-files-search-globs org-roam-file-extensions))
-         (names (s-join " -o " (mapcar (lambda (glob) (concat "-name " glob)) globs)))
-         (command (s-join " " `(,executable "-L" ,dir "-type f \\(" ,names "\\)"))))
+         (names (string-join (mapcar (lambda (glob) (concat "-name " glob)) globs) " -o "))
+         (command (string-join `(,executable "-L" ,dir "-type f \\(" ,names "\\)") " ")))
     (org-roam--shell-command-files command)))
 
 (defun org-roam--list-files-fd (executable dir)
   "Return all Org-roam files under DIR, using \"fd\", provided as EXECUTABLE."
   (let* ((globs (org-roam--list-files-search-globs org-roam-file-extensions))
-         (extensions (s-join " -e " (mapcar (lambda (glob) (substring glob 2 -1)) globs)))
-         (command (s-join " " `(,executable "-L" ,dir "--type file" ,extensions))))
+         (extensions (string-join (mapcar (lambda (glob) (concat "-e " (substring glob 2 -1))) globs) " "))
+         (command (string-join `(,executable "-L" "--type file" ,extensions "." ,dir) " ")))
     (org-roam--shell-command-files command)))
 
 (defalias 'org-roam--list-files-fdfind #'org-roam--list-files-fd)
@@ -288,9 +288,11 @@ E.g. (\".org\") => (\"*.org\" \"*.org.gpg\")"
 (defun org-roam--list-files-rg (executable dir)
   "Return all Org-roam files under DIR, using \"rg\", provided as EXECUTABLE."
   (let* ((globs (org-roam--list-files-search-globs org-roam-file-extensions))
-         (command (s-join " " `(,executable "-L" ,dir "--files"
-                                            ,@(mapcar (lambda (glob) (concat "-g " glob)) globs)))))
+         (command (string-join `(,executable "-L" ,dir "--files"
+                                             ,@(mapcar (lambda (glob) (concat "-g " glob)) globs)) " ")))
     (org-roam--shell-command-files command)))
+
+(declare-function org-roam--directory-files-recursively "org-roam-compat")
 
 (defun org-roam--list-files-elisp (dir)
   "Return all Org-roam files under DIR, using Elisp based implementation."

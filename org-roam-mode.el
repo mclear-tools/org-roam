@@ -1,11 +1,11 @@
 ;;; org-roam-mode.el --- Major mode for special Org-roam buffers -*- lexical-binding: t -*-
 
-;; Copyright © 2020-2021 Jethro Kuan <jethrokuan95@gmail.com>
+;; Copyright © 2020-2022 Jethro Kuan <jethrokuan95@gmail.com>
 
 ;; Author: Jethro Kuan <jethrokuan95@gmail.com>
 ;; URL: https://github.com/org-roam/org-roam
 ;; Keywords: org-mode, roam, convenience
-;; Version: 2.1.0
+;; Version: 2.2.0
 ;; Package-Requires: ((emacs "26.1") (dash "2.13") (f "0.17.2") (org "9.4") (emacsql "3.0.0") (emacsql-sqlite "1.0.0") (magit-section "3.0.0"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -45,6 +45,30 @@
 Each function is called with one argument, which is an
 `org-roam-node' for which the buffer will be constructed for.
 Normally this node is `org-roam-buffer-current-node'."
+  :group 'org-roam
+  :type 'hook)
+
+(defcustom org-roam-buffer-postrender-functions (list)
+  "Functions to run after the Org-roam buffer is rendered.
+Each function accepts no arguments, and is run with the Org-roam
+buffer as the current buffer."
+  :group 'org-roam
+  :type 'hook)
+
+(defcustom org-roam-preview-function #'org-roam-preview-default-function
+  "The preview function to use to populate the Org-roam buffer.
+
+The function takes no arguments, but the point is temporarily set
+to the exact location of the backlink."
+  :group 'org-roam
+  :type 'function)
+
+(defcustom org-roam-preview-postprocess-functions (list #'org-roam-strip-comments)
+  "A list of functions to postprocess the preview content.
+
+Each function takes a single argument, the string for the preview
+content, and returns the post-processed string. The functions are
+applied in order of appearance in the list."
   :group 'org-roam
   :type 'hook)
 
@@ -160,7 +184,8 @@ value shows the current node in the persistent `org-roam-buffer'.")
 
 (defvar org-roam-buffer-current-directory nil
   "The `org-roam-directory' value of `org-roam-buffer-current-node'.
-Set both, locally and globally in the same way as `org-roam-buffer-current-node'.")
+Set both, locally and globally in the same way as
+`org-roam-buffer-current-node'.")
 
 (put 'org-roam-buffer-current-directory 'permanent-local t)
 
@@ -204,6 +229,7 @@ buffer."
     (magit-insert-section (org-roam)
       (magit-insert-heading)
       (run-hook-with-args 'org-roam-mode-section-functions org-roam-buffer-current-node))
+    (run-hooks 'org-roam-buffer-postrender-functions)
     (goto-char 0)))
 
 (defun org-roam-buffer-set-header-line-format (string)
@@ -397,87 +423,27 @@ In interactive calls OTHER-WINDOW is set with
     (when (org-invisible-p) (org-show-context))
     buf))
 
-(defun org-roam-preview-get-contents (file point)
-  "Get preview content for FILE at POINT."
+(defun org-roam-preview-default-function ()
+  "Return the preview content at point.
+
+This function returns the all contents under the current
+headline, up to the next headline."
+  (let ((beg (progn (org-roam-end-of-meta-data t)
+                    (point)))
+        (end (progn (org-next-visible-heading 1)
+                    (point))))
+    (string-trim (buffer-substring-no-properties beg end))))
+
+(defun org-roam-preview-get-contents (file pt)
+  "Get preview content for FILE at PT."
   (save-excursion
     (org-roam-with-temp-buffer file
-      (goto-char point)
-      (let ((elem (org-element-at-point)))
-        ;; We want the parent element always
-        (while (org-element-property :parent elem)
-          (setq elem (org-element-property :parent elem)))
-        (pcase (car elem)
-          ('headline                    ; show subtree
-           (org-roam-preview-get-entry-text (point-marker) most-positive-fixnum))
-          (_
-           (let ((begin (org-element-property :begin elem))
-                 (end (org-element-property :end elem)))
-             (or (string-trim (buffer-substring-no-properties begin end))
-                 (org-element-property :raw-value elem)))))))))
-
-(defun org-roam-preview-get-entry-text (marker n-lines &optional indent)
-  "Extract entry text from MARKER, at most N-LINES lines.
-This will ignore drawers etc, just get the text.
-If INDENT is given, prefix every line with this string."
-  (let (txt ind)
-    (save-excursion
-      (with-current-buffer (marker-buffer marker)
-        (if (not (derived-mode-p 'org-mode))
-            (setq txt "")
-          (org-with-wide-buffer
-           (goto-char marker)
-           (end-of-line 1)
-           (setq txt (buffer-substring
-                      (min (1+ (point)) (point-max))
-                      (progn (outline-next-heading) (point))))
-           (with-temp-buffer
-             (insert txt)
-             (goto-char (point-min))
-             (while (org-activate-links (point-max))
-               (goto-char (match-end 0)))
-             (goto-char (point-min))
-             (while (re-search-forward org-link-bracket-re (point-max) t)
-               (set-text-properties (match-beginning 0) (match-end 0)
-                                    nil))
-             (goto-char (point-min))
-             (while (re-search-forward org-drawer-regexp nil t)
-               (delete-region
-                (match-beginning 0)
-                (progn (re-search-forward
-                        "^[ \t]*:END:.*\n?" nil 'move)
-                       (point))))
-             (goto-char (point-min))
-             (goto-char (point-max))
-             (skip-chars-backward " \t\n")
-             (when (looking-at "[ \t\n]+\\'") (replace-match ""))
-
-             ;; find and remove min common indentation
-             (goto-char (point-min))
-             (untabify (point-min) (point-max))
-             (setq ind (current-indentation))
-             (while (not (eobp))
-               (unless (looking-at "[ \t]*$")
-                 (setq ind (min ind (current-indentation))))
-               (beginning-of-line 2))
-             (goto-char (point-min))
-             (while (not (eobp))
-               (unless (looking-at "[ \t]*$")
-                 (move-to-column ind)
-                 (delete-region (point-at-bol) (point)))
-               (beginning-of-line 2))
-             (goto-char (point-min))
-             (when indent
-               (while (and (not (eobp)) (re-search-forward "^" nil t))
-                 (replace-match indent t t)))
-             (goto-char (point-min))
-             (while (looking-at "[ \t]*\n") (replace-match ""))
-             (goto-char (point-max))
-             (when (> (org-current-line)
-                      n-lines)
-               (org-goto-line (1+ n-lines))
-               (backward-char 1))
-             (setq txt (buffer-substring (point-min) (point))))))))
-    txt))
+      (org-with-wide-buffer
+       (goto-char pt)
+       (let ((s (funcall org-roam-preview-function)))
+         (dolist (fn org-roam-preview-postprocess-functions)
+           (setq s (funcall fn s)))
+         s)))))
 
 ;;;; Backlinks
 (cl-defstruct (org-roam-backlink (:constructor org-roam-backlink-create)
@@ -684,7 +650,7 @@ References from FILE are excluded."
                   (oset section row row)
                   (oset section col col)
                   (insert (propertize (format "%s:%s:%s"
-                                              (truncate-string-to-width (file-name-base f) 15 nil nil "...")
+                                              (truncate-string-to-width (file-name-base f) 15 nil nil t)
                                               row col) 'font-lock-face 'org-roam-dim)
                           " "
                           (org-roam-fontify-like-in-org-mode
